@@ -918,16 +918,35 @@ export class BattleScene extends Component {
 
   private onBattleUpdated = () => this.refreshHUD();
 
-  private onCardPlayed = (payload?: { actor?: 'player' | 'enemy'; card?: { definition?: { name?: string } } }) => {
+  private onCardPlayed = (payload?: { actor?: 'player' | 'enemy'; card?: { definition?: { name?: string; cost?: number; attack?: number; health?: number; camp?: string; type?: string } } }) => {
     if (!payload || !this.resultLabel) return;
     const actorText = payload.actor === 'player' ? '你' : '对手';
-    const name = payload.card?.definition?.name ?? '未知卡牌';
+    const def = payload.card?.definition;
+    const name = def?.name ?? '未知卡牌';
     this.resultLabel.string = `${actorText}打出了 ${name}`;
     this.resultLabel.color = payload.actor === 'player' ? new Color(255, 230, 120) : new Color(180, 220, 255);
     const rn = this.resultLabel.node;
     rn.setScale(new Vec3(0.5, 0.5, 1));
     tween(rn).to(0.15, { scale: new Vec3(1.05, 1.05, 1) }, { easing: 'backOut' }).to(0.1, { scale: new Vec3(1, 1, 1) }).start();
     this.appendLog(`${actorText}打出 ${name}`);
+
+    // fly animation: create temp card at hand area, fly to board
+    if (def) {
+      const isPlayer = payload.actor === 'player';
+      const startY = isPlayer ? -140 : 270;
+      const endY = isPlayer ? 10 : 150;
+      const flyCard = this.createCardNode(
+        def.name ?? '?', def.cost ?? 0, def.attack, def.health,
+        def.camp ?? 'neutral', def.type ?? 'unit', this.node, false, true,
+      );
+      flyCard.setPosition(0, startY, 0);
+      flyCard.setScale(new Vec3(0.6, 0.6, 1));
+      tween(flyCard)
+        .to(0.35, { position: new Vec3(0, endY, 0), scale: new Vec3(1.1, 1.1, 1) }, { easing: 'cubicOut' })
+        .to(0.1, { scale: new Vec3(0, 0, 1) })
+        .call(() => { if (flyCard.isValid) flyCard.destroy(); })
+        .start();
+    }
   };
 
   private onUnitAttacked = (payload?: { actor?: 'player' | 'enemy'; direct?: boolean; attacker?: { definition?: { name?: string } }; defender?: { definition?: { name?: string } } | null }) => {
@@ -943,6 +962,41 @@ export class BattleScene extends Component {
       rn.setScale(new Vec3(0.3, 0.3, 1));
       tween(rn).to(0.2, { scale: new Vec3(1.15, 1.15, 1) }, { easing: 'backOut' }).to(0.1, { scale: new Vec3(1, 1, 1) }).start();
     }
+
+    // attack rush animation
+    const isPlayer = payload.actor === 'player';
+    const boardNodes = isPlayer ? this._playerBoardNodes : this._enemyBoardNodes;
+    if (boardNodes.length > 0) {
+      const atkIdx = isPlayer ? this._selectedAttackerIndex : 0;
+      const atkNode = boardNodes[Math.min(atkIdx, boardNodes.length - 1)];
+      if (atkNode?.isValid) {
+        const origPos = atkNode.position.clone();
+        const rushY = isPlayer ? 60 : -60;
+        tween(atkNode)
+          .to(0.12, { position: new Vec3(origPos.x, origPos.y + rushY, 0) }, { easing: 'cubicOut' })
+          .to(0.08, { position: new Vec3(origPos.x, origPos.y + rushY - 8, 0) })
+          .to(0.15, { position: origPos }, { easing: 'bounceOut' })
+          .start();
+      }
+    }
+
+    // impact flash on target side
+    const flashNode = new Node('Flash'); flashNode.parent = this.node;
+    flashNode.addComponent(UITransform).setContentSize(new Size(120, 40));
+    flashNode.layer = this.node.layer;
+    flashNode.setPosition(0, isPlayer ? 150 : 10, 0);
+    const flashLbl = this.mkLabel('FLbl', 0, 0, 18, new Color(255, 80, 80), flashNode);
+    flashLbl.isBold = true;
+    flashLbl.string = payload.direct ? '💥 直击!' : '⚔ 战斗!';
+    flashNode.setScale(new Vec3(0, 0, 1));
+    tween(flashNode)
+      .to(0.15, { scale: new Vec3(1.3, 1.3, 1) }, { easing: 'backOut' })
+      .to(0.1, { scale: new Vec3(1, 1, 1) })
+      .delay(0.3)
+      .to(0.15, { scale: new Vec3(0, 0, 1) })
+      .call(() => { if (flashNode.isValid) flashNode.destroy(); })
+      .start();
+
     if (this.detailLabel) {
       const playerBoardCount = this._battle?.playerState.board.filter(Boolean).length ?? 0;
       const enemyBoardCount = this._battle?.enemyState.board.filter(Boolean).length ?? 0;
