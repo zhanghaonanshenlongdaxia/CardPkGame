@@ -724,7 +724,17 @@ export class BattleScene extends Component {
     this.playerHandContainer.addComponent(UITransform).setContentSize(new Size(800, 130));
     this.playerHandContainer.setPosition(0, -140, 0); this.playerHandContainer.layer = this.node.layer;
 
-    // fallback labels (hidden, kept for data)
+    // zone labels
+    this.mkLabel('ZEH', -400, 270, 11, new Color(140, 150, 180)).string = '敌方手牌';
+    this.mkLabel('ZEB', -400, 150, 11, new Color(255, 170, 170)).string = '敌方场上';
+    // divider line between enemy board and player board
+    const divG = this.gfx('Divider', this.node, 800, 4, 0, 80);
+    divG.fillColor = new Color(120, 140, 180, 80);
+    divG.rect(-400, -2, 800, 4); divG.fill();
+    this.mkLabel('ZPB', -400, 10, 11, new Color(170, 255, 170)).string = '我方场上';
+    this.mkLabel('ZPH', -400, -140, 11, new Color(255, 220, 150)).string = '我方手牌';
+
+    // fallback labels (for strategy info)
     this.enemyHandLabel = this.mkLabel('EnemyHand', 0, 320, 12, new Color(215, 225, 255));
     this.enemyBoardLabel = this.mkLabel('EnemyBoard', 0, 95, 12, new Color(255, 210, 210));
     this.playerBoardLabel = this.mkLabel('PlayerBoard', 0, -50, 12, new Color(210, 255, 210));
