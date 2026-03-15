@@ -97,6 +97,7 @@ export class BattleScene extends Component {
     name: string, cost: number, atk: number | undefined, hp: number | undefined,
     camp: string, type: string, parent: Node, small = false,
     selected = false, exhausted = false,
+    shields = 0, silenced = false, evidence = 0, attackBlocked = false,
   ): Node {
     const cw = small ? BattleScene.CARD_W_SM : BattleScene.CARD_W;
     const ch = small ? BattleScene.CARD_H_SM : BattleScene.CARD_H;
@@ -162,6 +163,22 @@ export class BattleScene extends Component {
       hpLbl.node.setPosition(cw / 2 - 12, -ch / 2 + 12, 0);
     }
 
+    // status markers
+    const statusParts: string[] = [];
+    if (exhausted) statusParts.push('Z');
+    if (shields > 0) statusParts.push(`🛡${shields}`);
+    if (silenced) statusParts.push('✕');
+    if (attackBlocked) statusParts.push('🚫');
+    if (evidence > 0) statusParts.push(`E${evidence}`);
+    if (statusParts.length > 0 && !small) {
+      const statusLbl = this.mkLabel('Status', 0, 0, 9, new Color(255, 220, 100), n);
+      statusLbl.string = statusParts.join(' ');
+      statusLbl.node.setPosition(0, -ch / 2 + 28, 0);
+      statusLbl.overflow = Label.Overflow.CLAMP;
+      const sUT = statusLbl.node.getComponent(UITransform);
+      if (sUT) sUT.setContentSize(new Size(cw - 8, 14));
+    }
+
     return n;
   }
 
@@ -216,10 +233,12 @@ export class BattleScene extends Component {
           unit.currentHealth ?? unit.definition.health ?? 0,
           unit.definition.camp, 'unit',
           this.playerBoardContainer!, false, sel, !!unit.exhausted,
+          unit.shields ?? 0, !!unit.silenced, unit.evidence ?? 0, !!unit.attackBlocked,
         );
         cn.setPosition(startX + i * (CW + gap), 0, 0);
         cn.on(Node.EventType.TOUCH_END, () => {
           this._selectedAttackerIndex = i;
+          this.showBoardCardDetail(unit);
           this.refreshHUD();
         });
         this._playerBoardNodes.push(cn);
@@ -242,10 +261,12 @@ export class BattleScene extends Component {
           unit.currentHealth ?? unit.definition.health ?? 0,
           unit.definition.camp, 'unit',
           this.enemyBoardContainer!, false, sel, !!unit.exhausted,
+          unit.shields ?? 0, !!unit.silenced, unit.evidence ?? 0, !!unit.attackBlocked,
         );
         cn.setPosition(startX + i * (CW + gap), 0, 0);
         cn.on(Node.EventType.TOUCH_END, () => {
           this._selectedTargetIndex = i;
+          this.showBoardCardDetail(unit);
           this.refreshHUD();
         });
         this._enemyBoardNodes.push(cn);
@@ -551,6 +572,55 @@ export class BattleScene extends Component {
       d.effects.forEach((e) => { info += `· ${e.description}\n`; });
     }
     this.cardDetailLabel.string = info;
+  }
+
+  private showBoardCardDetail(unit: { definition: { name: string; cost: number; attack?: number; health?: number; camp: string; type: string; text: string; rarity: string; effects: { description: string }[] }; currentAttack?: number; currentHealth?: number; exhausted?: boolean; shields?: number; silenced?: boolean; evidence?: number; attackBlocked?: boolean }) {
+    if (!this.cardDetailLabel) return;
+    this._cardDetailVisible = true;
+    if (this.cardDetailPanel) this.cardDetailPanel.active = true;
+    const d = unit.definition;
+    const typeMap: Record<string, string> = { unit: '单位', event: '事件', strategy: '策略' };
+    const campMap: Record<string, string> = { hotspot: '热搜流', moderation: '管控流', evidence: '实锤流', neutral: '中立' };
+    const atk = unit.currentAttack ?? d.attack ?? 0;
+    const hp = unit.currentHealth ?? d.health ?? 0;
+    let info = `【${d.name}】(场上)\n`;
+    info += `类型: ${typeMap[d.type] ?? d.type}  阵营: ${campMap[d.camp] ?? d.camp}\n`;
+    info += `费用: ${d.cost}  攻击: ${atk}  生命: ${hp}\n`;
+    const statuses: string[] = [];
+    if (unit.exhausted) statuses.push('已疲劳');
+    if (unit.shields && unit.shields > 0) statuses.push(`护盾x${unit.shields}`);
+    if (unit.silenced) statuses.push('已沉默');
+    if (unit.attackBlocked) statuses.push('攻击封锁');
+    if (unit.evidence && unit.evidence > 0) statuses.push(`证据x${unit.evidence}`);
+    if (statuses.length > 0) info += `状态: ${statuses.join(' ')}\n`;
+    info += `\n${d.text}\n`;
+    if (d.effects.length > 0) {
+      info += '\n效果:\n';
+      d.effects.forEach((e) => { info += `· ${e.description}\n`; });
+    }
+    this.cardDetailLabel.string = info;
+  }
+
+  private showTurnBanner(text: string, color: Color) {
+    const banner = new Node('TurnBanner'); banner.parent = this.node;
+    banner.addComponent(UITransform).setContentSize(new Size(400, 50));
+    banner.layer = this.node.layer;
+    banner.setPosition(0, 80, 0);
+    const g = banner.addComponent(Graphics);
+    g.fillColor = new Color(0, 0, 0, 180);
+    g.roundRect(-200, -25, 400, 50, 12); g.fill();
+    g.strokeColor = color; g.lineWidth = 2;
+    g.roundRect(-200, -25, 400, 50, 12); g.stroke();
+    const lbl = this.mkLabel('BLbl', 0, 0, 22, color, banner);
+    lbl.isBold = true; lbl.string = text;
+    banner.setScale(new Vec3(0, 1, 1));
+    tween(banner)
+      .to(0.2, { scale: new Vec3(1.05, 1.05, 1) }, { easing: 'backOut' })
+      .to(0.1, { scale: new Vec3(1, 1, 1) })
+      .delay(0.8)
+      .to(0.2, { scale: new Vec3(0, 0, 1) })
+      .call(() => { if (banner.isValid) banner.destroy(); })
+      .start();
   }
 
   /* ================ deck builder ================ */
@@ -901,6 +971,7 @@ export class BattleScene extends Component {
     this._busy = true;
     this.appendLog('--- 你结束回合 ---');
     this._battle!.endTurn();
+    this.showTurnBanner('对手回合', new Color(255, 140, 140));
     this.runEnemyTurn();
   }
 
@@ -921,6 +992,9 @@ export class BattleScene extends Component {
       this._battle!.endTurn();
       this.refreshHUD();
       this._busy = false;
+      if (this._battle.phase !== 'finished') {
+        this.showTurnBanner(`回合 ${this._battle.round} — 你的回合`, new Color(120, 255, 160));
+      }
     });
   }
 
