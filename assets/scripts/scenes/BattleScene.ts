@@ -59,12 +59,235 @@ export class BattleScene extends Component {
   private _deckBuilderCardIndex = 0;
   private _deckBuilderForPlayer = true;
 
+  /* -- card visuals -- */
+  private playerHandContainer: Node | null = null;
+  private playerBoardContainer: Node | null = null;
+  private enemyBoardContainer: Node | null = null;
+  private enemyHandContainer: Node | null = null;
+  private _handCardNodes: Node[] = [];
+  private _playerBoardNodes: Node[] = [];
+  private _enemyBoardNodes: Node[] = [];
+  private _enemyHandNodes: Node[] = [];
+
   private dly(s: number, cb: () => void) { setTimeout(cb, s * 1000); }
 
   private appendLog(msg: string) {
     this._battleLog.push(msg);
     if (this._battleLog.length > 6) this._battleLog.shift();
     if (this.logLabel) this.logLabel.string = this._battleLog.join('\n');
+  }
+
+  /* ================ card visuals ================ */
+
+  private static readonly CARD_W = 90;
+  private static readonly CARD_H = 120;
+  private static readonly CARD_W_SM = 70;
+  private static readonly CARD_H_SM = 95;
+
+  private campColor(camp: string): Color {
+    switch (camp) {
+      case 'hotspot': return new Color(180, 60, 40);
+      case 'moderation': return new Color(40, 90, 160);
+      case 'evidence': return new Color(50, 140, 70);
+      default: return new Color(100, 100, 110);
+    }
+  }
+
+  private createCardNode(
+    name: string, cost: number, atk: number | undefined, hp: number | undefined,
+    camp: string, type: string, parent: Node, small = false,
+    selected = false, exhausted = false,
+  ): Node {
+    const cw = small ? BattleScene.CARD_W_SM : BattleScene.CARD_W;
+    const ch = small ? BattleScene.CARD_H_SM : BattleScene.CARD_H;
+    const n = new Node('Card'); n.parent = parent;
+    n.addComponent(UITransform).setContentSize(new Size(cw, ch));
+    n.layer = this.node.layer;
+    const g = n.addComponent(Graphics);
+
+    // card background
+    const bgCol = this.campColor(camp);
+    const alpha = exhausted ? 140 : 230;
+    g.fillColor = new Color(bgCol.r, bgCol.g, bgCol.b, alpha);
+    g.roundRect(-cw / 2, -ch / 2, cw, ch, 6); g.fill();
+
+    // border
+    if (selected) {
+      g.strokeColor = new Color(255, 230, 60, 255); g.lineWidth = 3;
+    } else {
+      g.strokeColor = new Color(200, 200, 200, 160); g.lineWidth = 1.5;
+    }
+    g.roundRect(-cw / 2, -ch / 2, cw, ch, 6); g.stroke();
+
+    // inner art area (darker rect)
+    const artH = small ? 30 : 40;
+    g.fillColor = new Color(0, 0, 0, 60);
+    g.rect(-cw / 2 + 4, ch / 2 - 4 - artH - 16, cw - 8, artH); g.fill();
+
+    // cost badge (top-left)
+    g.fillColor = new Color(30, 80, 180, 220);
+    g.circle(-cw / 2 + 12, ch / 2 - 12, small ? 10 : 12); g.fill();
+    const costLbl = this.mkLabel('Cost', 0, 0, small ? 10 : 12, Color.WHITE, n);
+    costLbl.isBold = true; costLbl.string = `${cost}`;
+    costLbl.node.setPosition(-cw / 2 + 12, ch / 2 - 12, 0);
+
+    // name (center-top)
+    const nameLbl = this.mkLabel('Name', 0, 0, small ? 9 : 11, Color.WHITE, n);
+    nameLbl.string = name.length > 5 ? name.substring(0, 5) : name;
+    nameLbl.node.setPosition(6, ch / 2 - 12, 0);
+    nameLbl.overflow = Label.Overflow.CLAMP;
+    const nameUT = nameLbl.node.getComponent(UITransform);
+    if (nameUT) nameUT.setContentSize(new Size(cw - 30, 18));
+
+    // type icon area (middle)
+    const typeChar = type === 'unit' ? '⚔' : type === 'event' ? '✦' : '◆';
+    const typeLbl = this.mkLabel('Type', 0, 0, small ? 16 : 20, new Color(255, 255, 255, 140), n);
+    typeLbl.string = typeChar;
+    typeLbl.node.setPosition(0, small ? 8 : 12, 0);
+
+    // attack & health (bottom corners) - only for units
+    if (atk !== undefined && hp !== undefined) {
+      // attack (bottom-left)
+      g.fillColor = new Color(200, 160, 30, 220);
+      g.circle(-cw / 2 + 12, -ch / 2 + 12, small ? 10 : 12); g.fill();
+      const atkLbl = this.mkLabel('Atk', 0, 0, small ? 10 : 12, Color.WHITE, n);
+      atkLbl.isBold = true; atkLbl.string = `${atk}`;
+      atkLbl.node.setPosition(-cw / 2 + 12, -ch / 2 + 12, 0);
+
+      // health (bottom-right)
+      g.fillColor = new Color(200, 40, 40, 220);
+      g.circle(cw / 2 - 12, -ch / 2 + 12, small ? 10 : 12); g.fill();
+      const hpLbl = this.mkLabel('Hp', 0, 0, small ? 10 : 12, Color.WHITE, n);
+      hpLbl.isBold = true; hpLbl.string = `${hp}`;
+      hpLbl.node.setPosition(cw / 2 - 12, -ch / 2 + 12, 0);
+    }
+
+    return n;
+  }
+
+  private clearContainer(nodes: Node[]) {
+    nodes.forEach((n) => { if (n.isValid) n.destroy(); });
+    nodes.length = 0;
+  }
+
+  private renderCardVisuals() {
+    if (!this._battle) return;
+    const CW = BattleScene.CARD_W;
+    const CWS = BattleScene.CARD_W_SM;
+    const gap = 6;
+
+    // --- player hand ---
+    if (this.playerHandContainer) {
+      this.clearContainer(this._handCardNodes);
+      const hand = this._battle.playerState.hand;
+      const totalW = hand.length * (CW + gap) - gap;
+      const startX = -totalW / 2 + CW / 2;
+      hand.forEach((card, i) => {
+        const sel = i === this._selectedHandIndex;
+        const cn = this.createCardNode(
+          card.definition.name, card.definition.cost,
+          card.definition.attack, card.definition.health,
+          card.definition.camp, card.definition.type,
+          this.playerHandContainer!, false, sel,
+        );
+        cn.setPosition(startX + i * (CW + gap), sel ? 10 : 0, 0);
+        cn.on(Node.EventType.TOUCH_END, () => {
+          this._selectedHandIndex = i;
+          this.refreshHUD();
+          this.refreshCardDetail();
+        });
+        this._handCardNodes.push(cn);
+      });
+    }
+
+    // --- player board ---
+    if (this.playerBoardContainer) {
+      this.clearContainer(this._playerBoardNodes);
+      const units = this._battle.playerState.board.filter(
+        (u): u is NonNullable<typeof u> => !!u,
+      );
+      const totalW = units.length * (CW + gap) - gap;
+      const startX = -totalW / 2 + CW / 2;
+      units.forEach((unit, i) => {
+        const sel = i === this._selectedAttackerIndex;
+        const cn = this.createCardNode(
+          unit.definition.name, unit.definition.cost,
+          unit.currentAttack ?? unit.definition.attack ?? 0,
+          unit.currentHealth ?? unit.definition.health ?? 0,
+          unit.definition.camp, 'unit',
+          this.playerBoardContainer!, false, sel, !!unit.exhausted,
+        );
+        cn.setPosition(startX + i * (CW + gap), 0, 0);
+        cn.on(Node.EventType.TOUCH_END, () => {
+          this._selectedAttackerIndex = i;
+          this.refreshHUD();
+        });
+        this._playerBoardNodes.push(cn);
+      });
+    }
+
+    // --- enemy board ---
+    if (this.enemyBoardContainer) {
+      this.clearContainer(this._enemyBoardNodes);
+      const units = this._battle.enemyState.board.filter(
+        (u): u is NonNullable<typeof u> => !!u,
+      );
+      const totalW = units.length * (CW + gap) - gap;
+      const startX = -totalW / 2 + CW / 2;
+      units.forEach((unit, i) => {
+        const sel = i === this._selectedTargetIndex;
+        const cn = this.createCardNode(
+          unit.definition.name, unit.definition.cost,
+          unit.currentAttack ?? unit.definition.attack ?? 0,
+          unit.currentHealth ?? unit.definition.health ?? 0,
+          unit.definition.camp, 'unit',
+          this.enemyBoardContainer!, false, sel, !!unit.exhausted,
+        );
+        cn.setPosition(startX + i * (CW + gap), 0, 0);
+        cn.on(Node.EventType.TOUCH_END, () => {
+          this._selectedTargetIndex = i;
+          this.refreshHUD();
+        });
+        this._enemyBoardNodes.push(cn);
+      });
+    }
+
+    // --- enemy hand (face-down cards) ---
+    if (this.enemyHandContainer) {
+      this.clearContainer(this._enemyHandNodes);
+      const handLen = this._battle.enemyState.hand.length;
+      const totalW = handLen * (CWS + gap) - gap;
+      const startX = -totalW / 2 + CWS / 2;
+      for (let i = 0; i < handLen; i++) {
+        const cn = new Node('ECard'); cn.parent = this.enemyHandContainer;
+        cn.addComponent(UITransform).setContentSize(new Size(CWS, BattleScene.CARD_H_SM));
+        cn.layer = this.node.layer;
+        const g = cn.addComponent(Graphics);
+        g.fillColor = new Color(50, 55, 75, 220);
+        g.roundRect(-CWS / 2, -BattleScene.CARD_H_SM / 2, CWS, BattleScene.CARD_H_SM, 5); g.fill();
+        g.strokeColor = new Color(80, 90, 120, 160); g.lineWidth = 1;
+        g.roundRect(-CWS / 2, -BattleScene.CARD_H_SM / 2, CWS, BattleScene.CARD_H_SM, 5); g.stroke();
+        // back pattern
+        g.strokeColor = new Color(90, 100, 140, 80); g.lineWidth = 1;
+        g.roundRect(-CWS / 2 + 6, -BattleScene.CARD_H_SM / 2 + 6, CWS - 12, BattleScene.CARD_H_SM - 12, 3); g.stroke();
+        const qLbl = this.mkLabel('Q', 0, 0, 18, new Color(100, 110, 150, 160), cn);
+        qLbl.string = '?';
+        cn.setPosition(startX + i * (CWS + gap), 0, 0);
+        this._enemyHandNodes.push(cn);
+      }
+    }
+
+    // update fallback text labels (for selection info)
+    if (this.enemyHandLabel) this.enemyHandLabel.string = `敌方手牌: ${this._battle.enemyState.hand.length}张`;
+    if (this.enemyBoardLabel) {
+      const strats = this.summarizeStrategies('enemy');
+      this.enemyBoardLabel.string = strats ? `敌方策略: ${strats}` : '';
+    }
+    if (this.playerBoardLabel) {
+      const strats = this.summarizeStrategies('player');
+      this.playerBoardLabel.string = strats ? `我方策略: ${strats}` : '';
+    }
+    if (this.playerHandLabel) this.playerHandLabel.string = '';
   }
 
   /* ================ helpers ================ */
@@ -484,10 +707,28 @@ export class BattleScene extends Component {
     this.roundLabel = this.mkLabel('Rnd', -300, H / 2 - 28, 20, new Color(180, 200, 220));
     this.scoreLabel = this.mkLabel('Scr', 0, H / 2 - 28, 34, Color.WHITE);
     this.turnLabel  = this.mkLabel('Trn', 300, H / 2 - 28, 18, new Color(180, 255, 180));
-    this.enemyHandLabel = this.mkLabel('EnemyHand', 0, 280, 15, new Color(215, 225, 255));
-    this.enemyBoardLabel = this.mkLabel('EnemyBoard', 0, 210, 17, new Color(255, 210, 210));
-    this.playerBoardLabel = this.mkLabel('PlayerBoard', 0, -140, 17, new Color(210, 255, 210));
-    this.playerHandLabel = this.mkLabel('PlayerHand', 0, -80, 15, new Color(255, 235, 180));
+    // card containers
+    this.enemyHandContainer = new Node('EnemyHandC'); this.enemyHandContainer.parent = this.node;
+    this.enemyHandContainer.addComponent(UITransform).setContentSize(new Size(800, 100));
+    this.enemyHandContainer.setPosition(0, 270, 0); this.enemyHandContainer.layer = this.node.layer;
+
+    this.enemyBoardContainer = new Node('EnemyBoardC'); this.enemyBoardContainer.parent = this.node;
+    this.enemyBoardContainer.addComponent(UITransform).setContentSize(new Size(800, 130));
+    this.enemyBoardContainer.setPosition(0, 150, 0); this.enemyBoardContainer.layer = this.node.layer;
+
+    this.playerBoardContainer = new Node('PlayerBoardC'); this.playerBoardContainer.parent = this.node;
+    this.playerBoardContainer.addComponent(UITransform).setContentSize(new Size(800, 130));
+    this.playerBoardContainer.setPosition(0, 10, 0); this.playerBoardContainer.layer = this.node.layer;
+
+    this.playerHandContainer = new Node('PlayerHandC'); this.playerHandContainer.parent = this.node;
+    this.playerHandContainer.addComponent(UITransform).setContentSize(new Size(800, 130));
+    this.playerHandContainer.setPosition(0, -140, 0); this.playerHandContainer.layer = this.node.layer;
+
+    // fallback labels (hidden, kept for data)
+    this.enemyHandLabel = this.mkLabel('EnemyHand', 0, 320, 12, new Color(215, 225, 255));
+    this.enemyBoardLabel = this.mkLabel('EnemyBoard', 0, 95, 12, new Color(255, 210, 210));
+    this.playerBoardLabel = this.mkLabel('PlayerBoard', 0, -50, 12, new Color(210, 255, 210));
+    this.playerHandLabel = this.mkLabel('PlayerHand', 0, -200, 12, new Color(255, 235, 180));
 
     // ==== battle log ====
     const logBg = this.gfx('LogBg', this.node, 220, 180, 520, 80);
@@ -741,12 +982,8 @@ export class BattleScene extends Component {
     if (this.roundLabel) this.roundLabel.string = `回合 ${this._battle.round}/${this._battle.maxRounds}`;
     if (this.scoreLabel) this.scoreLabel.string = `${this._battle.playerState.reputation}  :  ${this._battle.enemyState.reputation}`;
     if (this.turnLabel) this.turnLabel.string = this._battle.phase === 'finished' ? '结束' : this._battle.currentTurn === 'player' ? '你的回合' : '对手回合...';
-    if (this.enemyHandLabel) this.enemyHandLabel.string = this.summarizeHand('enemy');
-    const enemyStrats = this.summarizeStrategies('enemy');
-    if (this.enemyBoardLabel) this.enemyBoardLabel.string = this.summarizeBoard('enemy') + (enemyStrats ? `  ${enemyStrats}` : '');
-    const playerStrats = this.summarizeStrategies('player');
-    if (this.playerBoardLabel) this.playerBoardLabel.string = this.summarizeBoard('player') + (playerStrats ? `  ${playerStrats}` : '');
-    if (this.playerHandLabel) this.playerHandLabel.string = this.summarizeHand('player');
+    // visual card rendering
+    this.renderCardVisuals();
     if (this.actionHintLabel) {
       this.actionHintLabel.string = `${this.summarizeNextAction('player')} | ${this.summarizeNextAction('enemy')}`;
     }
