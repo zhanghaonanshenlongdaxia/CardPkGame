@@ -231,22 +231,25 @@ export class BattleScene extends Component {
 
   private buildDeckSelectPanel() {
     const panel = new Node('DeckSelect'); panel.parent = this.node;
-    panel.addComponent(UITransform).setContentSize(new Size(600, 280));
-    panel.setPosition(0, 0, 0); panel.layer = this.node.layer;
+    panel.addComponent(UITransform).setContentSize(new Size(620, 300));
+    panel.setPosition(0, 30, 0); panel.layer = this.node.layer;
     panel.active = false;
     const g = panel.addComponent(Graphics);
     g.fillColor = new Color(12, 22, 45, 245);
-    g.roundRect(-300, -140, 600, 280, 16); g.fill();
+    g.roundRect(-310, -150, 620, 300, 16); g.fill();
     g.strokeColor = new Color(80, 130, 200, 160); g.lineWidth = 2;
-    g.roundRect(-300, -140, 600, 280, 16); g.stroke();
-    this.mkLabel('DSTitle', 0, 105, 24, new Color(255, 255, 200), panel).string = '选择牌组';
-    this.deckInfoLabel = this.mkLabel('DSInfo', 0, 30, 16, new Color(210, 220, 240), panel);
-    const prevP = this.mkBtn('PrevP', panel, -200, -40, 130, 42, '← 你的牌组', new Color(60, 100, 160));
-    const nextP = this.mkBtn('NextP', panel, -50, -40, 130, 42, '你的牌组 →', new Color(60, 100, 160));
-    const prevE = this.mkBtn('PrevE', panel, 50, -40, 130, 42, '← 对手牌组', new Color(140, 80, 80));
-    const nextE = this.mkBtn('NextE', panel, 200, -40, 130, 42, '对手牌组 →', new Color(140, 80, 80));
-    const editDeckBtn = this.mkBtn('EditDeck', panel, 200, -100, 140, 42, '编辑自定义', new Color(120, 90, 50));
-    const startBtn = this.mkBtn('StartBtn', panel, 0, -100, 200, 54, '开始对战', new Color(50, 150, 70));
+    g.roundRect(-310, -150, 620, 300, 16); g.stroke();
+    this.mkLabel('DSTitle', 0, 120, 24, new Color(255, 255, 200), panel).string = '选择牌组';
+    this.deckInfoLabel = this.mkLabel('DSInfo', 0, 40, 14, new Color(210, 220, 240), panel);
+    this.deckInfoLabel.overflow = Label.Overflow.CLAMP;
+    const diUT = this.deckInfoLabel.node.getComponent(UITransform);
+    if (diUT) diUT.setContentSize(new Size(580, 80));
+    const prevP = this.mkBtn('PrevP', panel, -200, -30, 120, 38, '← 你的牌组', new Color(60, 100, 160));
+    const nextP = this.mkBtn('NextP', panel, -60, -30, 120, 38, '你的牌组 →', new Color(60, 100, 160));
+    const prevE = this.mkBtn('PrevE', panel, 60, -30, 120, 38, '← 对手牌组', new Color(140, 80, 80));
+    const nextE = this.mkBtn('NextE', panel, 200, -30, 120, 38, '对手牌组 →', new Color(140, 80, 80));
+    const startBtn = this.mkBtn('StartBtn', panel, -60, -100, 200, 50, '开始对战', new Color(50, 150, 70));
+    const editDeckBtn = this.mkBtn('EditDeck', panel, 150, -100, 130, 40, '编辑自定义', new Color(120, 90, 50));
     prevP.on(Node.EventType.TOUCH_END, () => { this._selectedPlayerDeckIndex = (this._selectedPlayerDeckIndex - 1 + DeckPresets.length) % DeckPresets.length; this.refreshDeckInfo(); });
     nextP.on(Node.EventType.TOUCH_END, () => { this._selectedPlayerDeckIndex = (this._selectedPlayerDeckIndex + 1) % DeckPresets.length; this.refreshDeckInfo(); });
     prevE.on(Node.EventType.TOUCH_END, () => { this._selectedEnemyDeckIndex = (this._selectedEnemyDeckIndex - 1 + DeckPresets.length) % DeckPresets.length; this.refreshDeckInfo(); });
@@ -279,22 +282,22 @@ export class BattleScene extends Component {
   private buildCardDetailPanel() {
     const panel = new Node('CardDetail'); panel.parent = this.node;
     panel.addComponent(UITransform).setContentSize(new Size(260, 280));
-    panel.setPosition(-510, 50, 0); panel.layer = this.node.layer;
+    panel.setPosition(-520, 80, 0); panel.layer = this.node.layer;
     panel.active = false;
     const g = panel.addComponent(Graphics);
     g.fillColor = new Color(15, 22, 42, 240);
-    g.roundRect(-130, -140, 260, 280, 10); g.fill();
+    g.roundRect(-120, -130, 240, 260, 10); g.fill();
     g.strokeColor = new Color(100, 140, 200, 150); g.lineWidth = 1.5;
-    g.roundRect(-130, -140, 260, 280, 10); g.stroke();
-    this.mkLabel('CDTitle', -510, 125, 16, new Color(255, 230, 160), this.node).string = '';
-    this.cardDetailLabel = this.mkLabel('CDBody', -510, 20, 13, new Color(200, 210, 225));
+    g.roundRect(-120, -130, 240, 260, 10); g.stroke();
+    this.mkLabel('CDTitle', -520, 140, 15, new Color(255, 230, 160), this.node).string = '';
+    this.cardDetailLabel = this.mkLabel('CDBody', -520, 40, 12, new Color(200, 210, 225));
     this.cardDetailLabel.horizontalAlign = Label.HorizontalAlign.LEFT;
     this.cardDetailLabel.verticalAlign = Label.VerticalAlign.TOP;
     this.cardDetailLabel.overflow = Label.Overflow.CLAMP;
     const cdUT = this.cardDetailLabel.node.getComponent(UITransform);
-    if (cdUT) cdUT.setContentSize(new Size(240, 240));
+    if (cdUT) cdUT.setContentSize(new Size(220, 220));
     this.cardDetailPanel = panel;
-    const toggleBtn = this.mkBtn('ToggleDetail', this.node, -510, -115, 120, 34, '卡牌详情', new Color(70, 80, 110));
+    const toggleBtn = this.mkBtn('ToggleDetail', this.node, -520, -65, 110, 32, '卡牌详情', new Color(70, 80, 110));
     toggleBtn.on(Node.EventType.TOUCH_END, () => {
       this._cardDetailVisible = !this._cardDetailVisible;
       if (this.cardDetailPanel) this.cardDetailPanel.active = this._cardDetailVisible;
@@ -465,14 +468,14 @@ export class BattleScene extends Component {
     bg.rect(-W / 2, -H / 2, W, H); bg.fill();
 
     // ==== table ====
-    const tg = this.gfx('Table', this.node, 900, 520, 0, 20);
+    const tg = this.gfx('Table', this.node, 900, 440, 0, 50);
     tg.fillColor = new Color(40, 70, 45);
-    tg.roundRect(-450, -260, 900, 520, 24); tg.fill();
+    tg.roundRect(-450, -220, 900, 440, 24); tg.fill();
     tg.strokeColor = new Color(85, 62, 42); tg.lineWidth = 8;
-    tg.roundRect(-450, -260, 900, 520, 24); tg.stroke();
+    tg.roundRect(-450, -220, 900, 440, 24); tg.stroke();
     // inner border
     tg.strokeColor = new Color(55, 90, 58, 100); tg.lineWidth = 1.5;
-    tg.roundRect(-435, -245, 870, 490, 18); tg.stroke();
+    tg.roundRect(-435, -205, 870, 410, 18); tg.stroke();
 
     // ==== top HUD ====
     const topG = this.gfx('Top', this.node, W, 56, 0, H / 2 - 28);
@@ -481,23 +484,23 @@ export class BattleScene extends Component {
     this.roundLabel = this.mkLabel('Rnd', -300, H / 2 - 28, 20, new Color(180, 200, 220));
     this.scoreLabel = this.mkLabel('Scr', 0, H / 2 - 28, 34, Color.WHITE);
     this.turnLabel  = this.mkLabel('Trn', 300, H / 2 - 28, 18, new Color(180, 255, 180));
-    this.enemyHandLabel = this.mkLabel('EnemyHand', 0, 285, 16, new Color(215, 225, 255));
-    this.enemyBoardLabel = this.mkLabel('EnemyBoard', 0, 220, 18, new Color(255, 210, 210));
-    this.playerBoardLabel = this.mkLabel('PlayerBoard', 0, -180, 18, new Color(210, 255, 210));
-    this.playerHandLabel = this.mkLabel('PlayerHand', 0, -115, 16, new Color(255, 235, 180));
+    this.enemyHandLabel = this.mkLabel('EnemyHand', 0, 280, 15, new Color(215, 225, 255));
+    this.enemyBoardLabel = this.mkLabel('EnemyBoard', 0, 210, 17, new Color(255, 210, 210));
+    this.playerBoardLabel = this.mkLabel('PlayerBoard', 0, -140, 17, new Color(210, 255, 210));
+    this.playerHandLabel = this.mkLabel('PlayerHand', 0, -80, 15, new Color(255, 235, 180));
 
     // ==== battle log ====
-    const logBg = this.gfx('LogBg', this.node, 240, 200, 510, 50);
+    const logBg = this.gfx('LogBg', this.node, 220, 180, 520, 80);
     logBg.fillColor = new Color(10, 18, 38, 200);
-    logBg.roundRect(-120, -100, 240, 200, 8); logBg.fill();
+    logBg.roundRect(-110, -90, 220, 180, 8); logBg.fill();
     logBg.strokeColor = new Color(60, 80, 120, 120); logBg.lineWidth = 1;
-    logBg.roundRect(-120, -100, 240, 200, 8); logBg.stroke();
-    this.mkLabel('LogTitle', 510, 140, 14, new Color(160, 180, 220)).string = '战斗日志';
-    this.logLabel = this.mkLabel('LogContent', 510, 40, 12, new Color(180, 195, 210));
+    logBg.roundRect(-110, -90, 220, 180, 8); logBg.stroke();
+    this.mkLabel('LogTitle', 520, 160, 14, new Color(160, 180, 220)).string = '战斗日志';
+    this.logLabel = this.mkLabel('LogContent', 520, 65, 12, new Color(180, 195, 210));
     this.logLabel.horizontalAlign = Label.HorizontalAlign.LEFT;
     this.logLabel.overflow = Label.Overflow.CLAMP;
     const logUT = this.logLabel.node.getComponent(UITransform);
-    if (logUT) logUT.setContentSize(new Size(220, 180));
+    if (logUT) logUT.setContentSize(new Size(200, 160));
 
     // ==== card detail panel ====
     this.buildCardDetailPanel();
@@ -511,28 +514,30 @@ export class BattleScene extends Component {
     botG.rect(-W / 2, -20, W, 40); botG.fill();
     this.detailLabel = this.mkLabel('Det', 0, -H / 2 + 20, 14, new Color(160, 170, 180));
 
-    const controlPanel = this.gfx('ControlPanel', this.node, 660, 90, 0, -255);
+    const controlPanel = this.gfx('ControlPanel', this.node, 700, 120, 0, -270);
     controlPanel.fillColor = new Color(12, 22, 44, 220);
-    controlPanel.roundRect(-330, -45, 660, 90, 16);
+    controlPanel.roundRect(-350, -60, 700, 120, 16);
     controlPanel.fill();
     controlPanel.strokeColor = new Color(90, 130, 180, 180);
     controlPanel.lineWidth = 2;
-    controlPanel.roundRect(-330, -45, 660, 90, 16);
+    controlPanel.roundRect(-350, -60, 700, 120, 16);
     controlPanel.stroke();
-    this.actionHintLabel = this.mkLabel('ActionHint', 0, -300, 16, new Color(220, 230, 255));
-    this.selectionLabel = this.mkLabel('SelectionHint', 0, -332, 16, new Color(255, 225, 180));
+    this.actionHintLabel = this.mkLabel('ActionHint', 0, -335, 14, new Color(220, 230, 255));
+    this.selectionLabel = this.mkLabel('SelectionHint', 0, -354, 13, new Color(255, 225, 180));
 
     // ==== placeholder: center text ====
-    this.resultLabel = this.mkLabel('Res', 0, 0, 28, new Color(255, 255, 100));
+    this.resultLabel = this.mkLabel('Res', 0, 10, 28, new Color(255, 255, 100));
     this.resultLabel.string = '使用下方按钮操作回合';
 
-    const prevHandBtn = this.mkBtn('PrevHandBtn', this.node, -470, -250, 100, 46, '上一张', new Color(70, 90, 130));
-    const nextHandBtn = this.mkBtn('NextHandBtn', this.node, -360, -250, 100, 46, '下一张', new Color(70, 90, 130));
-    this.playBtn = this.mkBtn('PlayBtn', this.node, -220, -250, 180, 54, '出牌', new Color(46, 125, 220));
-    const nextAttackerBtn = this.mkBtn('NextAttackerBtn', this.node, 150, -250, 130, 46, '切攻击者', new Color(100, 80, 135));
-    const nextTargetBtn = this.mkBtn('NextTargetBtn', this.node, 300, -250, 130, 46, '切目标', new Color(100, 80, 135));
-    this.attackBtn = this.mkBtn('AttackBtn', this.node, 0, -250, 180, 54, '单位攻击', new Color(195, 92, 55));
-    this.endTurnBtn = this.mkBtn('EndTurnBtn', this.node, 220, -250, 180, 54, '结束回合', new Color(90, 110, 130));
+    // -- row 1: hand controls --
+    const prevHandBtn = this.mkBtn('PrevHandBtn', this.node, -280, -235, 90, 40, '上一张', new Color(70, 90, 130));
+    const nextHandBtn = this.mkBtn('NextHandBtn', this.node, -180, -235, 90, 40, '下一张', new Color(70, 90, 130));
+    this.playBtn = this.mkBtn('PlayBtn', this.node, -50, -235, 150, 44, '出牌', new Color(46, 125, 220));
+    this.endTurnBtn = this.mkBtn('EndTurnBtn', this.node, 250, -235, 150, 44, '结束回合', new Color(90, 110, 130));
+    // -- row 2: battle controls --
+    const nextAttackerBtn = this.mkBtn('NextAttackerBtn', this.node, -220, -290, 110, 38, '切攻击者', new Color(100, 80, 135));
+    this.attackBtn = this.mkBtn('AttackBtn', this.node, -60, -290, 150, 44, '单位攻击', new Color(195, 92, 55));
+    const nextTargetBtn = this.mkBtn('NextTargetBtn', this.node, 100, -290, 110, 38, '切目标', new Color(100, 80, 135));
     prevHandBtn.on(Node.EventType.TOUCH_END, () => {
       const total = this._battle?.playerState.hand.length ?? 0;
       this._selectedHandIndex = this.cycleIndex(this._selectedHandIndex, total, -1);
