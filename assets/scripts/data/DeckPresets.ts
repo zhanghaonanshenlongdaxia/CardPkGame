@@ -11,6 +11,9 @@ export interface DeckPreset {
   cards: string[];
 }
 
+export const DECK_MIN_SIZE = 15;
+export const DECK_MAX_SIZE = 30;
+
 export const DeckPresets: DeckPreset[] = [
   {
     id: 'hotspot_aggro',
@@ -135,5 +138,12 @@ export const DeckPresets: DeckPreset[] = [
       'neutral_010', 'neutral_010',
       'neutral_013',
     ],
+  },
+  {
+    id: 'custom',
+    name: '自定义牌组',
+    camp: 'mixed',
+    description: '自由选卡组建你的专属牌组。',
+    cards: [],
   },
 ];

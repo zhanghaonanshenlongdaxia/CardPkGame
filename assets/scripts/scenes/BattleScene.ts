@@ -4,7 +4,8 @@ import { EventBus } from '../framework/EventBus';
 import { GameInstaller } from '../installers/GameInstaller';
 import { BattleModel } from '../models/BattleModel';
 import { BattleConfig } from '../data/BattleConfig';
-import { DeckPresets } from '../data/DeckPresets';
+import { DeckPresets, DECK_MIN_SIZE, DECK_MAX_SIZE } from '../data/DeckPresets';
+import { CardLibrary } from '../data/CardLibrary';
 
 const { ccclass } = _decorator;
 
@@ -37,6 +38,8 @@ export class BattleScene extends Component {
   private actionHintLabel: Label | null = null;
   private selectionLabel: Label | null = null;
   private logLabel: Label | null = null;
+  private cardDetailPanel: Node | null = null;
+  private cardDetailLabel: Label | null = null;
 
   /* -- state -- */
   private _battle: BattleModel | null = null;
@@ -49,6 +52,12 @@ export class BattleScene extends Component {
   private deckSelectPanel: Node | null = null;
   private deckInfoLabel: Label | null = null;
   private _battleLog: string[] = [];
+  private _cardDetailVisible = false;
+  private deckBuilderPanel: Node | null = null;
+  private deckBuilderListLabel: Label | null = null;
+  private deckBuilderInfoLabel: Label | null = null;
+  private _deckBuilderCardIndex = 0;
+  private _deckBuilderForPlayer = true;
 
   private dly(s: number, cb: () => void) { setTimeout(cb, s * 1000); }
 
@@ -236,23 +245,215 @@ export class BattleScene extends Component {
     const nextP = this.mkBtn('NextP', panel, -50, -40, 130, 42, '你的牌组 →', new Color(60, 100, 160));
     const prevE = this.mkBtn('PrevE', panel, 50, -40, 130, 42, '← 对手牌组', new Color(140, 80, 80));
     const nextE = this.mkBtn('NextE', panel, 200, -40, 130, 42, '对手牌组 →', new Color(140, 80, 80));
+    const editDeckBtn = this.mkBtn('EditDeck', panel, 200, -100, 140, 42, '编辑自定义', new Color(120, 90, 50));
     const startBtn = this.mkBtn('StartBtn', panel, 0, -100, 200, 54, '开始对战', new Color(50, 150, 70));
     prevP.on(Node.EventType.TOUCH_END, () => { this._selectedPlayerDeckIndex = (this._selectedPlayerDeckIndex - 1 + DeckPresets.length) % DeckPresets.length; this.refreshDeckInfo(); });
     nextP.on(Node.EventType.TOUCH_END, () => { this._selectedPlayerDeckIndex = (this._selectedPlayerDeckIndex + 1) % DeckPresets.length; this.refreshDeckInfo(); });
     prevE.on(Node.EventType.TOUCH_END, () => { this._selectedEnemyDeckIndex = (this._selectedEnemyDeckIndex - 1 + DeckPresets.length) % DeckPresets.length; this.refreshDeckInfo(); });
     nextE.on(Node.EventType.TOUCH_END, () => { this._selectedEnemyDeckIndex = (this._selectedEnemyDeckIndex + 1) % DeckPresets.length; this.refreshDeckInfo(); });
+    editDeckBtn.on(Node.EventType.TOUCH_END, () => { this.openDeckBuilder(true); });
     startBtn.on(Node.EventType.TOUCH_END, () => {
+      const pDeck = DeckPresets[this._selectedPlayerDeckIndex];
+      const eDeck = DeckPresets[this._selectedEnemyDeckIndex];
+      if (pDeck.id === 'custom' && pDeck.cards.length < DECK_MIN_SIZE) {
+        if (this.deckInfoLabel) this.deckInfoLabel.string = `你的自定义牌组至少需要${DECK_MIN_SIZE}张! 请先编辑牌组。`;
+        return;
+      }
+      if (eDeck.id === 'custom' && eDeck.cards.length < DECK_MIN_SIZE) {
+        if (this.deckInfoLabel) this.deckInfoLabel.string = `对手的自定义牌组至少需要${DECK_MIN_SIZE}张! 请先编辑牌组。`;
+        return;
+      }
       panel.active = false;
       this._battleLog = [];
       if (this.logLabel) this.logLabel.string = '';
-      const pDeck = DeckPresets[this._selectedPlayerDeckIndex];
-      const eDeck = DeckPresets[this._selectedEnemyDeckIndex];
       this._battle?.startBattle(BattleConfig.maxRounds, pDeck.id, eDeck.id);
       this.appendLog(`对局开始: ${pDeck.name} vs ${eDeck.name}`);
       this.refreshHUD();
     });
     this.deckSelectPanel = panel;
     this.refreshDeckInfo();
+  }
+
+  /* ================ card detail ================ */
+
+  private buildCardDetailPanel() {
+    const panel = new Node('CardDetail'); panel.parent = this.node;
+    panel.addComponent(UITransform).setContentSize(new Size(260, 280));
+    panel.setPosition(-510, 50, 0); panel.layer = this.node.layer;
+    panel.active = false;
+    const g = panel.addComponent(Graphics);
+    g.fillColor = new Color(15, 22, 42, 240);
+    g.roundRect(-130, -140, 260, 280, 10); g.fill();
+    g.strokeColor = new Color(100, 140, 200, 150); g.lineWidth = 1.5;
+    g.roundRect(-130, -140, 260, 280, 10); g.stroke();
+    this.mkLabel('CDTitle', -510, 125, 16, new Color(255, 230, 160), this.node).string = '';
+    this.cardDetailLabel = this.mkLabel('CDBody', -510, 20, 13, new Color(200, 210, 225));
+    this.cardDetailLabel.horizontalAlign = Label.HorizontalAlign.LEFT;
+    this.cardDetailLabel.verticalAlign = Label.VerticalAlign.TOP;
+    this.cardDetailLabel.overflow = Label.Overflow.CLAMP;
+    const cdUT = this.cardDetailLabel.node.getComponent(UITransform);
+    if (cdUT) cdUT.setContentSize(new Size(240, 240));
+    this.cardDetailPanel = panel;
+    const toggleBtn = this.mkBtn('ToggleDetail', this.node, -510, -115, 120, 34, '卡牌详情', new Color(70, 80, 110));
+    toggleBtn.on(Node.EventType.TOUCH_END, () => {
+      this._cardDetailVisible = !this._cardDetailVisible;
+      if (this.cardDetailPanel) this.cardDetailPanel.active = this._cardDetailVisible;
+      if (this._cardDetailVisible) this.refreshCardDetail();
+    });
+  }
+
+  private refreshCardDetail() {
+    if (!this.cardDetailLabel || !this._cardDetailVisible) return;
+    const card = this.getSelectedHandCard();
+    if (!card) {
+      this.cardDetailLabel.string = '没有选中手牌';
+      return;
+    }
+    const d = card.definition;
+    const typeMap: Record<string, string> = { unit: '单位', event: '事件', strategy: '策略' };
+    const campMap: Record<string, string> = { hotspot: '热搜流', moderation: '管控流', evidence: '实锤流', neutral: '中立' };
+    const rarityMap: Record<string, string> = { common: '普通', rare: '稀有', epic: '史诗', legendary: '传说' };
+    let info = `【${d.name}】\n`;
+    info += `类型: ${typeMap[d.type] ?? d.type}  阵营: ${campMap[d.camp] ?? d.camp}\n`;
+    info += `稀有度: ${rarityMap[d.rarity] ?? d.rarity}  费用: ${d.cost}\n`;
+    if (d.attack !== undefined || d.health !== undefined) {
+      info += `攻击: ${d.attack ?? '-'}  生命: ${d.health ?? '-'}\n`;
+    }
+    info += `\n${d.text}\n`;
+    if (d.effects.length > 0) {
+      info += '\n效果:\n';
+      d.effects.forEach((e) => { info += `· ${e.description}\n`; });
+    }
+    this.cardDetailLabel.string = info;
+  }
+
+  /* ================ deck builder ================ */
+
+  private buildDeckBuilderPanel() {
+    const panel = new Node('DeckBuilder'); panel.parent = this.node;
+    panel.addComponent(UITransform).setContentSize(new Size(W - 40, H - 40));
+    panel.setPosition(0, 0, 0); panel.layer = this.node.layer;
+    panel.active = false;
+    const g = panel.addComponent(Graphics);
+    g.fillColor = new Color(12, 20, 40, 250);
+    g.roundRect(-(W - 40) / 2, -(H - 40) / 2, W - 40, H - 40, 16); g.fill();
+    g.strokeColor = new Color(80, 130, 200, 160); g.lineWidth = 2;
+    g.roundRect(-(W - 40) / 2, -(H - 40) / 2, W - 40, H - 40, 16); g.stroke();
+
+    this.mkLabel('DBTitle', 0, 310, 22, new Color(255, 230, 160), panel).string = '自定义组牌';
+    this.deckBuilderInfoLabel = this.mkLabel('DBInfo', 0, 275, 14, new Color(180, 200, 220), panel);
+    this.deckBuilderListLabel = this.mkLabel('DBList', -200, 50, 13, new Color(210, 220, 235), panel);
+    this.deckBuilderListLabel.horizontalAlign = Label.HorizontalAlign.LEFT;
+    this.deckBuilderListLabel.verticalAlign = Label.VerticalAlign.TOP;
+    this.deckBuilderListLabel.overflow = Label.Overflow.CLAMP;
+    const listUT = this.deckBuilderListLabel.node.getComponent(UITransform);
+    if (listUT) listUT.setContentSize(new Size(380, 460));
+
+    const deckContentLabel = this.mkLabel('DBDeck', 250, 50, 12, new Color(190, 210, 230), panel);
+    deckContentLabel.horizontalAlign = Label.HorizontalAlign.LEFT;
+    deckContentLabel.verticalAlign = Label.VerticalAlign.TOP;
+    deckContentLabel.overflow = Label.Overflow.CLAMP;
+    const deckUT = deckContentLabel.node.getComponent(UITransform);
+    if (deckUT) deckUT.setContentSize(new Size(280, 460));
+    this.mkLabel('DBDeckTitle', 250, 275, 14, new Color(255, 200, 120), panel).string = '当前牌组内容';
+
+    const prevBtn = this.mkBtn('DBPrev', panel, -280, -295, 90, 38, '上一张', new Color(60, 80, 120));
+    const nextBtn = this.mkBtn('DBNext', panel, -170, -295, 90, 38, '下一张', new Color(60, 80, 120));
+    const addBtn = this.mkBtn('DBAdd', panel, -50, -295, 90, 38, '加入', new Color(50, 130, 70));
+    const removeBtn = this.mkBtn('DBRemove', panel, 60, -295, 90, 38, '移除', new Color(150, 60, 60));
+    const doneBtn = this.mkBtn('DBDone', panel, 220, -295, 120, 44, '完成组牌', new Color(50, 120, 180));
+
+    const allCards = CardLibrary.cards;
+    const getCustomDeck = () => DeckPresets.find((d) => d.id === 'custom')!;
+
+    const refreshView = () => {
+      const idx = this._deckBuilderCardIndex;
+      const c = allCards[idx];
+      if (!c) return;
+      const typeMap: Record<string, string> = { unit: '单位', event: '事件', strategy: '策略' };
+      const campMap: Record<string, string> = { hotspot: '热搜流', moderation: '管控流', evidence: '实锤流', neutral: '中立' };
+      const customDeck = getCustomDeck();
+      const countInDeck = customDeck.cards.filter((id) => id === c.id).length;
+      let cardInfo = `[${idx + 1}/${allCards.length}]  ${c.name}  (${campMap[c.camp] ?? c.camp})\n`;
+      cardInfo += `类型: ${typeMap[c.type] ?? c.type}  费用: ${c.cost}`;
+      if (c.attack !== undefined) cardInfo += `  攻: ${c.attack}`;
+      if (c.health !== undefined) cardInfo += `  血: ${c.health}`;
+      cardInfo += `\n上限: ${c.deckLimit}张  已加入: ${countInDeck}张\n\n`;
+      cardInfo += `${c.text}\n`;
+      if (c.effects.length > 0) {
+        cardInfo += '\n效果:\n';
+        c.effects.forEach((e) => { cardInfo += `· ${e.description}\n`; });
+      }
+      if (this.deckBuilderListLabel) this.deckBuilderListLabel.string = cardInfo;
+
+      if (this.deckBuilderInfoLabel) {
+        this.deckBuilderInfoLabel.string = `牌组张数: ${customDeck.cards.length}  (最少${DECK_MIN_SIZE}张, 最多${DECK_MAX_SIZE}张)`;
+      }
+
+      const cardCount = new Map<string, number>();
+      customDeck.cards.forEach((id) => cardCount.set(id, (cardCount.get(id) ?? 0) + 1));
+      let deckStr = '';
+      cardCount.forEach((cnt, id) => {
+        const def = allCards.find((cd) => cd.id === id);
+        deckStr += `${def?.name ?? id} x${cnt}\n`;
+      });
+      deckContentLabel.string = deckStr || '(空)';
+    };
+
+    prevBtn.on(Node.EventType.TOUCH_END, () => {
+      this._deckBuilderCardIndex = (this._deckBuilderCardIndex - 1 + allCards.length) % allCards.length;
+      refreshView();
+    });
+    nextBtn.on(Node.EventType.TOUCH_END, () => {
+      this._deckBuilderCardIndex = (this._deckBuilderCardIndex + 1) % allCards.length;
+      refreshView();
+    });
+    addBtn.on(Node.EventType.TOUCH_END, () => {
+      const c = allCards[this._deckBuilderCardIndex];
+      if (!c) return;
+      const customDeck = getCustomDeck();
+      const countInDeck = customDeck.cards.filter((id) => id === c.id).length;
+      if (countInDeck >= c.deckLimit) return;
+      if (customDeck.cards.length >= DECK_MAX_SIZE) return;
+      customDeck.cards.push(c.id);
+      refreshView();
+    });
+    removeBtn.on(Node.EventType.TOUCH_END, () => {
+      const c = allCards[this._deckBuilderCardIndex];
+      if (!c) return;
+      const customDeck = getCustomDeck();
+      const idx = customDeck.cards.lastIndexOf(c.id);
+      if (idx >= 0) customDeck.cards.splice(idx, 1);
+      refreshView();
+    });
+    doneBtn.on(Node.EventType.TOUCH_END, () => {
+      const customDeck = getCustomDeck();
+      if (customDeck.cards.length < DECK_MIN_SIZE) {
+        if (this.deckBuilderInfoLabel) this.deckBuilderInfoLabel.string = `牌组至少需要${DECK_MIN_SIZE}张! 当前: ${customDeck.cards.length}张`;
+        return;
+      }
+      panel.active = false;
+      if (this.deckSelectPanel) this.deckSelectPanel.active = true;
+      this.refreshDeckInfo();
+    });
+
+    this.deckBuilderPanel = panel;
+    refreshView();
+  }
+
+  private openDeckBuilder(forPlayer: boolean) {
+    this._deckBuilderForPlayer = forPlayer;
+    this._deckBuilderCardIndex = 0;
+    if (this.deckSelectPanel) this.deckSelectPanel.active = false;
+    if (this.deckBuilderPanel) {
+      this.deckBuilderPanel.active = true;
+      const allCards = CardLibrary.cards;
+      const getCustomDeck = () => DeckPresets.find((d) => d.id === 'custom')!;
+      const customDeck = getCustomDeck();
+      if (this.deckBuilderInfoLabel) {
+        this.deckBuilderInfoLabel.string = `牌组张数: ${customDeck.cards.length}  (最少${DECK_MIN_SIZE}张, 最多${DECK_MAX_SIZE}张)`;
+      }
+    }
   }
 
   /* ================ build scene ================ */
@@ -298,6 +499,12 @@ export class BattleScene extends Component {
     const logUT = this.logLabel.node.getComponent(UITransform);
     if (logUT) logUT.setContentSize(new Size(220, 180));
 
+    // ==== card detail panel ====
+    this.buildCardDetailPanel();
+
+    // ==== deck builder panel ====
+    this.buildDeckBuilderPanel();
+
     // ==== bottom bar ====
     const botG = this.gfx('Bot', this.node, W, 40, 0, -H / 2 + 20);
     botG.fillColor = new Color(10, 20, 45, 230);
@@ -330,11 +537,13 @@ export class BattleScene extends Component {
       const total = this._battle?.playerState.hand.length ?? 0;
       this._selectedHandIndex = this.cycleIndex(this._selectedHandIndex, total, -1);
       this.refreshHUD();
+      this.refreshCardDetail();
     });
     nextHandBtn.on(Node.EventType.TOUCH_END, () => {
       const total = this._battle?.playerState.hand.length ?? 0;
       this._selectedHandIndex = this.cycleIndex(this._selectedHandIndex, total, 1);
       this.refreshHUD();
+      this.refreshCardDetail();
     });
     this.playBtn.on(Node.EventType.TOUCH_END, this.onPlayCardTap, this);
     this.attackBtn.on(Node.EventType.TOUCH_END, this.onAttackTap, this);
