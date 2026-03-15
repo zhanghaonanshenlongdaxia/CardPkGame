@@ -602,13 +602,15 @@ export class BattleScene extends Component {
   }
 
   onDestroy() {
-    EventBus.off('battle:updated', this.onBattleUpdated);
-    EventBus.off('battle:card_played', this.onCardPlayed);
-    EventBus.off('battle:unit_attacked', this.onUnitAttacked);
-    EventBus.off('battle:finished', this.onBattleFinished);
-    this.playBtn?.off(Node.EventType.TOUCH_END, this.onPlayCardTap, this);
-    this.attackBtn?.off(Node.EventType.TOUCH_END, this.onAttackTap, this);
-    this.endTurnBtn?.off(Node.EventType.TOUCH_END, this.onEndTurnTap, this);
+    try {
+      EventBus.off('battle:updated', this.onBattleUpdated);
+      EventBus.off('battle:card_played', this.onCardPlayed);
+      EventBus.off('battle:unit_attacked', this.onUnitAttacked);
+      EventBus.off('battle:finished', this.onBattleFinished);
+      if (this.playBtn?.isValid) this.playBtn.off(Node.EventType.TOUCH_END, this.onPlayCardTap, this);
+      if (this.attackBtn?.isValid) this.attackBtn.off(Node.EventType.TOUCH_END, this.onAttackTap, this);
+      if (this.endTurnBtn?.isValid) this.endTurnBtn.off(Node.EventType.TOUCH_END, this.onEndTurnTap, this);
+    } catch (_e) { /* ignore cleanup errors */ }
   }
 
   /* ================ controls ================ */
