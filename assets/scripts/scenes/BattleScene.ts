@@ -189,8 +189,10 @@ export class BattleScene extends Component {
     const sf = this.getSF(camp);
     if (sf) {
       const sp = n.addComponent(Sprite);
-      sp.spriteFrame = sf;
       sp.sizeMode = Sprite.SizeMode.CUSTOM;
+      sp.spriteFrame = sf;
+      // re-apply size after sprite assignment (sprite may override UITransform)
+      n.getComponent(UITransform)!.setContentSize(new Size(cw, ch));
       if (exhausted) sp.color = new Color(140, 140, 140, 180);
     } else {
       // fallback: Graphics
@@ -382,8 +384,9 @@ export class BattleScene extends Component {
         cn.layer = this.node.layer;
         if (backSF) {
           const sp = cn.addComponent(Sprite);
-          sp.spriteFrame = backSF;
           sp.sizeMode = Sprite.SizeMode.CUSTOM;
+          sp.spriteFrame = backSF;
+          cn.getComponent(UITransform)!.setContentSize(new Size(CWS, this.cardHeightSm));
         } else {
           const g = cn.addComponent(Graphics);
           g.fillColor = new Color(50, 55, 75, 220);
@@ -711,8 +714,9 @@ export class BattleScene extends Component {
     const bannerSF = this.getBannerSF(isPlayerTurn);
     if (bannerSF) {
       const sp = banner.addComponent(Sprite);
-      sp.spriteFrame = bannerSF;
       sp.sizeMode = Sprite.SizeMode.CUSTOM;
+      sp.spriteFrame = bannerSF;
+      banner.getComponent(UITransform)!.setContentSize(new Size(400, 80));
     } else {
       const g = banner.addComponent(Graphics);
       g.fillColor = new Color(0, 0, 0, 180);
@@ -1041,8 +1045,9 @@ export class BattleScene extends Component {
         newTable.addComponent(UITransform).setContentSize(new Size(900, 440));
         newTable.setPosition(pos); newTable.layer = this.node.layer;
         const sp = newTable.addComponent(Sprite);
-        sp.spriteFrame = bfSF;
         sp.sizeMode = Sprite.SizeMode.CUSTOM;
+        sp.spriteFrame = bfSF;
+        newTable.getComponent(UITransform)!.setContentSize(new Size(900, 440));
         newTable.setSiblingIndex(sibIdx);
         this._tableNode = newTable;
       }
