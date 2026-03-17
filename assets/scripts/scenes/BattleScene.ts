@@ -712,11 +712,7 @@ export class BattleScene extends Component {
     banner.setPosition(0, 80, 0);
     const bannerSF = this.getBannerSF(isPlayerTurn);
     if (bannerSF) {
-      // use image's original aspect ratio
-      const tex = bannerSF.texture;
-      const bw = tex ? tex.width : 400;
-      const bh = tex ? tex.height : 80;
-      banner.addComponent(UITransform).setContentSize(new Size(bw, bh));
+      // use natural size - don't force any dimensions
       const sp = banner.addComponent(Sprite);
       sp.spriteFrame = bannerSF;
     } else {
