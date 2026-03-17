@@ -202,12 +202,15 @@ export class BattleScene extends Component {
 
     // selected highlight border (overlay)
     if (selected) {
+      const bm = 6; // border margin
+      const bw = cw + bm * 2;
+      const bh = ch + bm * 2;
       const border = new Node('Sel'); border.parent = n;
-      border.addComponent(UITransform).setContentSize(new Size(cw + 4, ch + 4));
+      border.addComponent(UITransform).setContentSize(new Size(bw, bh));
       border.layer = this.node.layer;
       const bg = border.addComponent(Graphics);
-      bg.strokeColor = new Color(255, 230, 60, 255); bg.lineWidth = 3;
-      bg.roundRect(-(cw + 4) / 2, -(ch + 4) / 2, cw + 4, ch + 4, 8); bg.stroke();
+      bg.strokeColor = new Color(255, 230, 60, 255); bg.lineWidth = 4;
+      bg.roundRect(-bw / 2, -bh / 2, bw, bh, 8); bg.stroke();
     }
 
     // cost label (top-left, on the blue gem)

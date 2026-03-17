@@ -8,98 +8,6 @@
     ".png"
   ],
   "subMetas": {
-    "f9941": {
-      "importer": "sprite-frame",
-      "uuid": "b412451a-a262-4bd3-b266-8f9b4e430317@f9941",
-      "displayName": "card_moderation",
-      "id": "f9941",
-      "name": "spriteFrame",
-      "userData": {
-        "trimType": "auto",
-        "trimThreshold": 1,
-        "rotated": false,
-        "offsetX": 0,
-        "offsetY": 0,
-        "trimX": 0,
-        "trimY": 0,
-        "width": 180,
-        "height": 240,
-        "rawWidth": 180,
-        "rawHeight": 240,
-        "borderTop": 0,
-        "borderBottom": 0,
-        "borderLeft": 0,
-        "borderRight": 0,
-        "packable": true,
-        "pixelsToUnit": 100,
-        "pivotX": 0.5,
-        "pivotY": 0.5,
-        "meshType": 0,
-        "vertices": {
-          "rawPosition": [
-            -90,
-            -120,
-            0,
-            90,
-            -120,
-            0,
-            -90,
-            120,
-            0,
-            90,
-            120,
-            0
-          ],
-          "indexes": [
-            0,
-            1,
-            2,
-            2,
-            1,
-            3
-          ],
-          "uv": [
-            0,
-            240,
-            180,
-            240,
-            0,
-            0,
-            180,
-            0
-          ],
-          "nuv": [
-            0,
-            0,
-            1,
-            0,
-            0,
-            1,
-            1,
-            1
-          ],
-          "minPos": [
-            -90,
-            -120,
-            0
-          ],
-          "maxPos": [
-            90,
-            120,
-            0
-          ]
-        },
-        "isUuid": true,
-        "imageUuidOrDatabaseUri": "b412451a-a262-4bd3-b266-8f9b4e430317@6c48a",
-        "atlasUuid": ""
-      },
-      "ver": "1.0.12",
-      "imported": true,
-      "files": [
-        ".json"
-      ],
-      "subMetas": {}
-    },
     "6c48a": {
       "importer": "texture",
       "uuid": "b412451a-a262-4bd3-b266-8f9b4e430317@6c48a",
@@ -118,6 +26,98 @@
         "visible": false
       },
       "ver": "1.0.22",
+      "imported": true,
+      "files": [
+        ".json"
+      ],
+      "subMetas": {}
+    },
+    "f9941": {
+      "importer": "sprite-frame",
+      "uuid": "b412451a-a262-4bd3-b266-8f9b4e430317@f9941",
+      "displayName": "card_moderation",
+      "id": "f9941",
+      "name": "spriteFrame",
+      "userData": {
+        "trimType": "auto",
+        "trimThreshold": 1,
+        "rotated": false,
+        "offsetX": 0,
+        "offsetY": 0,
+        "trimX": 6,
+        "trimY": 0,
+        "width": 168,
+        "height": 240,
+        "rawWidth": 180,
+        "rawHeight": 240,
+        "borderTop": 0,
+        "borderBottom": 0,
+        "borderLeft": 0,
+        "borderRight": 0,
+        "packable": true,
+        "pixelsToUnit": 100,
+        "pivotX": 0.5,
+        "pivotY": 0.5,
+        "meshType": 0,
+        "vertices": {
+          "rawPosition": [
+            -84,
+            -120,
+            0,
+            84,
+            -120,
+            0,
+            -84,
+            120,
+            0,
+            84,
+            120,
+            0
+          ],
+          "indexes": [
+            0,
+            1,
+            2,
+            2,
+            1,
+            3
+          ],
+          "uv": [
+            6,
+            240,
+            174,
+            240,
+            6,
+            0,
+            174,
+            0
+          ],
+          "nuv": [
+            0.03333333333333333,
+            0,
+            0.9666666666666667,
+            0,
+            0.03333333333333333,
+            1,
+            0.9666666666666667,
+            1
+          ],
+          "minPos": [
+            -84,
+            -120,
+            0
+          ],
+          "maxPos": [
+            84,
+            120,
+            0
+          ]
+        },
+        "isUuid": true,
+        "imageUuidOrDatabaseUri": "b412451a-a262-4bd3-b266-8f9b4e430317@6c48a",
+        "atlasUuid": ""
+      },
+      "ver": "1.0.12",
       "imported": true,
       "files": [
         ".json"
