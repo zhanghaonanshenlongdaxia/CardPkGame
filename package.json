@@ -3,5 +3,8 @@
   "uuid": "3c2679f6-2cf2-41c8-aea6-bd4287736e60",
   "creator": {
     "version": "3.8.8"
+  },
+  "devDependencies": {
+    "sharp": "^0.34.5"
   }
 }
