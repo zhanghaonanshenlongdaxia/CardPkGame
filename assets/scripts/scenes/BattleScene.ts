@@ -1,4 +1,4 @@
-import { _decorator, Color, Component, EventTouch, Graphics, Label, Node, tween, UITransform, Vec3, Size, director } from 'cc';
+import { _decorator, Color, Component, EventTouch, Graphics, Label, Node, tween, UITransform, Vec3, Size, director, Sprite, SpriteFrame, Texture2D, resources, ImageAsset } from 'cc';
 import { Arch } from '../framework/Arch';
 import { EventBus } from '../framework/EventBus';
 import { GameInstaller } from '../installers/GameInstaller';
@@ -64,6 +64,7 @@ export class BattleScene extends Component {
   private playerBoardContainer: Node | null = null;
   private enemyBoardContainer: Node | null = null;
   private enemyHandContainer: Node | null = null;
+  private _tableNode: Node | null = null;
   private _handCardNodes: Node[] = [];
   private _playerBoardNodes: Node[] = [];
   private _enemyBoardNodes: Node[] = [];
@@ -83,6 +84,62 @@ export class BattleScene extends Component {
   private static readonly CARD_H = 120;
   private static readonly CARD_W_SM = 70;
   private static readonly CARD_H_SM = 95;
+
+  private _sfCache: Map<string, SpriteFrame> = new Map();
+  private _texturesReady = false;
+
+  private preloadTextures(cb?: () => void) {
+    const paths = [
+      'textures/cards/card_hotspot',
+      'textures/cards/card_moderation',
+      'textures/cards/card_evidence',
+      'textures/card_back/card_back',
+      'textures/battlefield/battlefield_bg',
+      'textures/banners/banner_your_turn',
+      'textures/banners/banner_enemy_turn',
+    ];
+    let loaded = 0;
+    const total = paths.length;
+    paths.forEach((p) => {
+      resources.load(p, SpriteFrame, (err, sf) => {
+        if (!err && sf) {
+          this._sfCache.set(p, sf);
+        } else {
+          // try loading as Texture2D and create SpriteFrame
+          resources.load(p, Texture2D, (err2, tex) => {
+            if (!err2 && tex) {
+              const sf2 = new SpriteFrame();
+              sf2.texture = tex;
+              this._sfCache.set(p, sf2);
+            }
+          });
+        }
+        loaded++;
+        if (loaded >= total) {
+          this._texturesReady = true;
+          if (cb) cb();
+        }
+      });
+    });
+  }
+
+  private getSF(camp: string): SpriteFrame | null {
+    const key = `textures/cards/card_${camp}`;
+    return this._sfCache.get(key) ?? null;
+  }
+
+  private getBackSF(): SpriteFrame | null {
+    return this._sfCache.get('textures/card_back/card_back') ?? null;
+  }
+
+  private getBattlefieldSF(): SpriteFrame | null {
+    return this._sfCache.get('textures/battlefield/battlefield_bg') ?? null;
+  }
+
+  private getBannerSF(isPlayer: boolean): SpriteFrame | null {
+    const key = isPlayer ? 'textures/banners/banner_your_turn' : 'textures/banners/banner_enemy_turn';
+    return this._sfCache.get(key) ?? null;
+  }
 
   private campColor(camp: string): Color {
     switch (camp) {
@@ -104,31 +161,51 @@ export class BattleScene extends Component {
     const n = new Node('Card'); n.parent = parent;
     n.addComponent(UITransform).setContentSize(new Size(cw, ch));
     n.layer = this.node.layer;
-    const g = n.addComponent(Graphics);
 
-    // card background
-    const bgCol = this.campColor(camp);
-    const alpha = exhausted ? 140 : 230;
-    g.fillColor = new Color(bgCol.r, bgCol.g, bgCol.b, alpha);
-    g.roundRect(-cw / 2, -ch / 2, cw, ch, 6); g.fill();
-
-    // border
-    if (selected) {
-      g.strokeColor = new Color(255, 230, 60, 255); g.lineWidth = 3;
+    // try sprite background
+    const sf = this.getSF(camp);
+    if (sf) {
+      const sp = n.addComponent(Sprite);
+      sp.spriteFrame = sf;
+      sp.sizeMode = Sprite.SizeMode.CUSTOM;
+      if (exhausted) sp.color = new Color(140, 140, 140, 180);
     } else {
+      // fallback: Graphics
+      const g = n.addComponent(Graphics);
+      const bgCol = this.campColor(camp);
+      const alpha = exhausted ? 140 : 230;
+      g.fillColor = new Color(bgCol.r, bgCol.g, bgCol.b, alpha);
+      g.roundRect(-cw / 2, -ch / 2, cw, ch, 6); g.fill();
       g.strokeColor = new Color(200, 200, 200, 160); g.lineWidth = 1.5;
+      g.roundRect(-cw / 2, -ch / 2, cw, ch, 6); g.stroke();
+      // inner art area
+      const artH = small ? 30 : 40;
+      g.fillColor = new Color(0, 0, 0, 60);
+      g.rect(-cw / 2 + 4, ch / 2 - 4 - artH - 16, cw - 8, artH); g.fill();
+      // cost circle
+      g.fillColor = new Color(30, 80, 180, 220);
+      g.circle(-cw / 2 + 12, ch / 2 - 12, small ? 10 : 12); g.fill();
+      // atk/hp circles
+      if (atk !== undefined && hp !== undefined) {
+        g.fillColor = new Color(200, 160, 30, 220);
+        g.circle(-cw / 2 + 12, -ch / 2 + 12, small ? 10 : 12); g.fill();
+        g.fillColor = new Color(200, 40, 40, 220);
+        g.circle(cw / 2 - 12, -ch / 2 + 12, small ? 10 : 12); g.fill();
+      }
     }
-    g.roundRect(-cw / 2, -ch / 2, cw, ch, 6); g.stroke();
 
-    // inner art area (darker rect)
-    const artH = small ? 30 : 40;
-    g.fillColor = new Color(0, 0, 0, 60);
-    g.rect(-cw / 2 + 4, ch / 2 - 4 - artH - 16, cw - 8, artH); g.fill();
+    // selected highlight border (overlay)
+    if (selected) {
+      const border = new Node('Sel'); border.parent = n;
+      border.addComponent(UITransform).setContentSize(new Size(cw + 4, ch + 4));
+      border.layer = this.node.layer;
+      const bg = border.addComponent(Graphics);
+      bg.strokeColor = new Color(255, 230, 60, 255); bg.lineWidth = 3;
+      bg.roundRect(-(cw + 4) / 2, -(ch + 4) / 2, cw + 4, ch + 4, 8); bg.stroke();
+    }
 
-    // cost badge (top-left)
-    g.fillColor = new Color(30, 80, 180, 220);
-    g.circle(-cw / 2 + 12, ch / 2 - 12, small ? 10 : 12); g.fill();
-    const costLbl = this.mkLabel('Cost', 0, 0, small ? 10 : 12, Color.WHITE, n);
+    // cost label (top-left, on the blue gem)
+    const costLbl = this.mkLabel('Cost', 0, 0, small ? 10 : 13, Color.WHITE, n);
     costLbl.isBold = true; costLbl.string = `${cost}`;
     costLbl.node.setPosition(-cw / 2 + 12, ch / 2 - 12, 0);
 
@@ -140,25 +217,18 @@ export class BattleScene extends Component {
     const nameUT = nameLbl.node.getComponent(UITransform);
     if (nameUT) nameUT.setContentSize(new Size(cw - 30, 18));
 
-    // type icon area (middle)
+    // type icon (middle of card)
     const typeChar = type === 'unit' ? '⚔' : type === 'event' ? '✦' : '◆';
-    const typeLbl = this.mkLabel('Type', 0, 0, small ? 16 : 20, new Color(255, 255, 255, 140), n);
+    const typeLbl = this.mkLabel('Type', 0, 0, small ? 16 : 20, new Color(255, 255, 255, 180), n);
     typeLbl.string = typeChar;
     typeLbl.node.setPosition(0, small ? 8 : 12, 0);
 
-    // attack & health (bottom corners) - only for units
+    // attack & health labels (bottom corners, on the gems)
     if (atk !== undefined && hp !== undefined) {
-      // attack (bottom-left)
-      g.fillColor = new Color(200, 160, 30, 220);
-      g.circle(-cw / 2 + 12, -ch / 2 + 12, small ? 10 : 12); g.fill();
-      const atkLbl = this.mkLabel('Atk', 0, 0, small ? 10 : 12, Color.WHITE, n);
+      const atkLbl = this.mkLabel('Atk', 0, 0, small ? 10 : 13, Color.WHITE, n);
       atkLbl.isBold = true; atkLbl.string = `${atk}`;
       atkLbl.node.setPosition(-cw / 2 + 12, -ch / 2 + 12, 0);
-
-      // health (bottom-right)
-      g.fillColor = new Color(200, 40, 40, 220);
-      g.circle(cw / 2 - 12, -ch / 2 + 12, small ? 10 : 12); g.fill();
-      const hpLbl = this.mkLabel('Hp', 0, 0, small ? 10 : 12, Color.WHITE, n);
+      const hpLbl = this.mkLabel('Hp', 0, 0, small ? 10 : 13, Color.WHITE, n);
       hpLbl.isBold = true; hpLbl.string = `${hp}`;
       hpLbl.node.setPosition(cw / 2 - 12, -ch / 2 + 12, 0);
     }
@@ -279,20 +349,26 @@ export class BattleScene extends Component {
       const handLen = this._battle.enemyState.hand.length;
       const totalW = handLen * (CWS + gap) - gap;
       const startX = -totalW / 2 + CWS / 2;
+      const backSF = this.getBackSF();
       for (let i = 0; i < handLen; i++) {
         const cn = new Node('ECard'); cn.parent = this.enemyHandContainer;
         cn.addComponent(UITransform).setContentSize(new Size(CWS, BattleScene.CARD_H_SM));
         cn.layer = this.node.layer;
-        const g = cn.addComponent(Graphics);
-        g.fillColor = new Color(50, 55, 75, 220);
-        g.roundRect(-CWS / 2, -BattleScene.CARD_H_SM / 2, CWS, BattleScene.CARD_H_SM, 5); g.fill();
-        g.strokeColor = new Color(80, 90, 120, 160); g.lineWidth = 1;
-        g.roundRect(-CWS / 2, -BattleScene.CARD_H_SM / 2, CWS, BattleScene.CARD_H_SM, 5); g.stroke();
-        // back pattern
-        g.strokeColor = new Color(90, 100, 140, 80); g.lineWidth = 1;
-        g.roundRect(-CWS / 2 + 6, -BattleScene.CARD_H_SM / 2 + 6, CWS - 12, BattleScene.CARD_H_SM - 12, 3); g.stroke();
-        const qLbl = this.mkLabel('Q', 0, 0, 18, new Color(100, 110, 150, 160), cn);
-        qLbl.string = '?';
+        if (backSF) {
+          const sp = cn.addComponent(Sprite);
+          sp.spriteFrame = backSF;
+          sp.sizeMode = Sprite.SizeMode.CUSTOM;
+        } else {
+          const g = cn.addComponent(Graphics);
+          g.fillColor = new Color(50, 55, 75, 220);
+          g.roundRect(-CWS / 2, -BattleScene.CARD_H_SM / 2, CWS, BattleScene.CARD_H_SM, 5); g.fill();
+          g.strokeColor = new Color(80, 90, 120, 160); g.lineWidth = 1;
+          g.roundRect(-CWS / 2, -BattleScene.CARD_H_SM / 2, CWS, BattleScene.CARD_H_SM, 5); g.stroke();
+          g.strokeColor = new Color(90, 100, 140, 80); g.lineWidth = 1;
+          g.roundRect(-CWS / 2 + 6, -BattleScene.CARD_H_SM / 2 + 6, CWS - 12, BattleScene.CARD_H_SM - 12, 3); g.stroke();
+          const qLbl = this.mkLabel('Q', 0, 0, 18, new Color(100, 110, 150, 160), cn);
+          qLbl.string = '?';
+        }
         cn.setPosition(startX + i * (CWS + gap), 0, 0);
         this._enemyHandNodes.push(cn);
       }
@@ -601,18 +677,25 @@ export class BattleScene extends Component {
     this.cardDetailLabel.string = info;
   }
 
-  private showTurnBanner(text: string, color: Color) {
+  private showTurnBanner(text: string, color: Color, isPlayerTurn = true) {
     const banner = new Node('TurnBanner'); banner.parent = this.node;
-    banner.addComponent(UITransform).setContentSize(new Size(400, 50));
+    banner.addComponent(UITransform).setContentSize(new Size(400, 80));
     banner.layer = this.node.layer;
     banner.setPosition(0, 80, 0);
-    const g = banner.addComponent(Graphics);
-    g.fillColor = new Color(0, 0, 0, 180);
-    g.roundRect(-200, -25, 400, 50, 12); g.fill();
-    g.strokeColor = color; g.lineWidth = 2;
-    g.roundRect(-200, -25, 400, 50, 12); g.stroke();
-    const lbl = this.mkLabel('BLbl', 0, 0, 22, color, banner);
-    lbl.isBold = true; lbl.string = text;
+    const bannerSF = this.getBannerSF(isPlayerTurn);
+    if (bannerSF) {
+      const sp = banner.addComponent(Sprite);
+      sp.spriteFrame = bannerSF;
+      sp.sizeMode = Sprite.SizeMode.CUSTOM;
+    } else {
+      const g = banner.addComponent(Graphics);
+      g.fillColor = new Color(0, 0, 0, 180);
+      g.roundRect(-200, -40, 400, 80, 12); g.fill();
+      g.strokeColor = color; g.lineWidth = 2;
+      g.roundRect(-200, -40, 400, 80, 12); g.stroke();
+      const lbl = this.mkLabel('BLbl', 0, 0, 22, color, banner);
+      lbl.isBold = true; lbl.string = text;
+    }
     banner.setScale(new Vec3(0, 1, 1));
     tween(banner)
       .to(0.2, { scale: new Vec3(1.05, 1.05, 1) }, { easing: 'backOut' })
@@ -761,14 +844,18 @@ export class BattleScene extends Component {
     bg.rect(-W / 2, -H / 2, W, H); bg.fill();
 
     // ==== table ====
-    const tg = this.gfx('Table', this.node, 900, 440, 0, 50);
+    const tableNode = new Node('Table'); tableNode.parent = this.node;
+    tableNode.addComponent(UITransform).setContentSize(new Size(900, 440));
+    tableNode.setPosition(0, 50, 0); tableNode.layer = this.node.layer;
+    // will be replaced with sprite when texture loads; draw fallback Graphics
+    const tg = tableNode.addComponent(Graphics);
     tg.fillColor = new Color(40, 70, 45);
     tg.roundRect(-450, -220, 900, 440, 24); tg.fill();
     tg.strokeColor = new Color(85, 62, 42); tg.lineWidth = 8;
     tg.roundRect(-450, -220, 900, 440, 24); tg.stroke();
-    // inner border
     tg.strokeColor = new Color(55, 90, 58, 100); tg.lineWidth = 1.5;
     tg.roundRect(-435, -205, 870, 410, 18); tg.stroke();
+    this._tableNode = tableNode;
 
     // ==== top HUD ====
     const topG = this.gfx('Top', this.node, W, 56, 0, H / 2 - 28);
@@ -916,6 +1003,19 @@ export class BattleScene extends Component {
     EventBus.on('battle:card_played', this.onCardPlayed);
     EventBus.on('battle:unit_attacked', this.onUnitAttacked);
     EventBus.on('battle:finished', this.onBattleFinished);
+
+    this.preloadTextures(() => {
+      // apply battlefield background
+      const bfSF = this.getBattlefieldSF();
+      if (bfSF && this._tableNode?.isValid) {
+        const oldG = this._tableNode.getComponent(Graphics);
+        if (oldG) { oldG.clear(); this._tableNode.removeComponent(oldG); }
+        const sp = this._tableNode.addComponent(Sprite);
+        sp.spriteFrame = bfSF;
+        sp.sizeMode = Sprite.SizeMode.CUSTOM;
+      }
+      this.refreshHUD();
+    });
   }
 
   start() {
@@ -971,7 +1071,7 @@ export class BattleScene extends Component {
     this._busy = true;
     this.appendLog('--- 你结束回合 ---');
     this._battle!.endTurn();
-    this.showTurnBanner('对手回合', new Color(255, 140, 140));
+    this.showTurnBanner('对手回合', new Color(255, 140, 140), false);
     this.runEnemyTurn();
   }
 
