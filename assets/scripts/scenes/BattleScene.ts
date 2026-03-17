@@ -100,25 +100,31 @@ export class BattleScene extends Component {
     ];
     let loaded = 0;
     const total = paths.length;
+    const done = () => { loaded++; if (loaded >= total) { this._texturesReady = true; if (cb) cb(); } };
     paths.forEach((p) => {
-      resources.load(p, SpriteFrame, (err, sf) => {
-        if (!err && sf) {
-          this._sfCache.set(p, sf);
-        } else {
-          // try loading as Texture2D and create SpriteFrame
-          resources.load(p, Texture2D, (err2, tex) => {
-            if (!err2 && tex) {
-              const sf2 = new SpriteFrame();
-              sf2.texture = tex;
-              this._sfCache.set(p, sf2);
+      // Attempt 1: load as SpriteFrame (works if Cocos editor has imported the asset)
+      resources.load(`${p}/spriteFrame`, SpriteFrame, (err, sf) => {
+        if (!err && sf) { this._sfCache.set(p, sf); done(); return; }
+        // Attempt 2: load path directly as SpriteFrame
+        resources.load(p, SpriteFrame, (err2, sf2) => {
+          if (!err2 && sf2) { this._sfCache.set(p, sf2); done(); return; }
+          // Attempt 3: load as Texture2D and wrap
+          resources.load(p, Texture2D, (err3, tex) => {
+            if (!err3 && tex) {
+              const frame = new SpriteFrame(); frame.texture = tex;
+              this._sfCache.set(p, frame); done(); return;
             }
+            // Attempt 4: load as ImageAsset and build chain
+            resources.load(p, ImageAsset, (err4, img) => {
+              if (!err4 && img) {
+                const t = new Texture2D(); t.image = img;
+                const frame = new SpriteFrame(); frame.texture = t;
+                this._sfCache.set(p, frame);
+              }
+              done();
+            });
           });
-        }
-        loaded++;
-        if (loaded >= total) {
-          this._texturesReady = true;
-          if (cb) cb();
-        }
+        });
       });
     });
   }
