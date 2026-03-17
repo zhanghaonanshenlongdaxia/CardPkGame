@@ -89,10 +89,10 @@ export class BattleScene extends Component {
 
   /* ================ card visuals ================ */
 
-  private static readonly CARD_W = 90;
-  private static readonly CARD_H = 120;
-  private static readonly CARD_W_SM = 70;
-  private static readonly CARD_H_SM = 95;
+  @property({ tooltip: '手牌/场上卡牌宽度' }) cardWidth = 90;
+  @property({ tooltip: '手牌/场上卡牌高度' }) cardHeight = 120;
+  @property({ tooltip: '敌方手牌(小)宽度' }) cardWidthSm = 70;
+  @property({ tooltip: '敌方手牌(小)高度' }) cardHeightSm = 95;
 
   private _sfCache: Map<string, SpriteFrame> = new Map();
   private _texturesReady = false;
@@ -179,8 +179,8 @@ export class BattleScene extends Component {
     selected = false, exhausted = false,
     shields = 0, silenced = false, evidence = 0, attackBlocked = false,
   ): Node {
-    const cw = small ? BattleScene.CARD_W_SM : BattleScene.CARD_W;
-    const ch = small ? BattleScene.CARD_H_SM : BattleScene.CARD_H;
+    const cw = small ? this.cardWidthSm : this.cardWidth;
+    const ch = small ? this.cardHeightSm : this.cardHeight;
     const n = new Node('Card'); n.parent = parent;
     n.addComponent(UITransform).setContentSize(new Size(cw, ch));
     n.layer = this.node.layer;
@@ -285,8 +285,8 @@ export class BattleScene extends Component {
 
   private renderCardVisuals() {
     if (!this._battle) return;
-    const CW = BattleScene.CARD_W;
-    const CWS = BattleScene.CARD_W_SM;
+    const CW = this.cardWidth;
+    const CWS = this.cardWidthSm;
     const gap = 6;
 
     // --- player hand ---
@@ -378,7 +378,7 @@ export class BattleScene extends Component {
       const backSF = this.getBackSF();
       for (let i = 0; i < handLen; i++) {
         const cn = new Node('ECard'); cn.parent = this.enemyHandContainer;
-        cn.addComponent(UITransform).setContentSize(new Size(CWS, BattleScene.CARD_H_SM));
+        cn.addComponent(UITransform).setContentSize(new Size(CWS, this.cardHeightSm));
         cn.layer = this.node.layer;
         if (backSF) {
           const sp = cn.addComponent(Sprite);
@@ -387,11 +387,11 @@ export class BattleScene extends Component {
         } else {
           const g = cn.addComponent(Graphics);
           g.fillColor = new Color(50, 55, 75, 220);
-          g.roundRect(-CWS / 2, -BattleScene.CARD_H_SM / 2, CWS, BattleScene.CARD_H_SM, 5); g.fill();
+          g.roundRect(-CWS / 2, -this.cardHeightSm / 2, CWS, this.cardHeightSm, 5); g.fill();
           g.strokeColor = new Color(80, 90, 120, 160); g.lineWidth = 1;
-          g.roundRect(-CWS / 2, -BattleScene.CARD_H_SM / 2, CWS, BattleScene.CARD_H_SM, 5); g.stroke();
+          g.roundRect(-CWS / 2, -this.cardHeightSm / 2, CWS, this.cardHeightSm, 5); g.stroke();
           g.strokeColor = new Color(90, 100, 140, 80); g.lineWidth = 1;
-          g.roundRect(-CWS / 2 + 6, -BattleScene.CARD_H_SM / 2 + 6, CWS - 12, BattleScene.CARD_H_SM - 12, 3); g.stroke();
+          g.roundRect(-CWS / 2 + 6, -this.cardHeightSm / 2 + 6, CWS - 12, this.cardHeightSm - 12, 3); g.stroke();
           const qLbl = this.mkLabel('Q', 0, 0, 18, new Color(100, 110, 150, 160), cn);
           qLbl.string = '?';
         }
