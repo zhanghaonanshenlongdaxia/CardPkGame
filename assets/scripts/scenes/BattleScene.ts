@@ -1011,14 +1011,20 @@ export class BattleScene extends Component {
     EventBus.on('battle:finished', this.onBattleFinished);
 
     this.preloadTextures(() => {
-      // apply battlefield background
+      // apply battlefield background — replace the Graphics node with a Sprite node
       const bfSF = this.getBattlefieldSF();
       if (bfSF && this._tableNode?.isValid) {
-        const oldG = this._tableNode.getComponent(Graphics);
-        if (oldG) { oldG.clear(); this._tableNode.removeComponent(oldG); }
-        const sp = this._tableNode.addComponent(Sprite);
+        const pos = this._tableNode.position.clone();
+        const sibIdx = this._tableNode.getSiblingIndex();
+        this._tableNode.destroy();
+        const newTable = new Node('Table'); newTable.parent = this.node;
+        newTable.addComponent(UITransform).setContentSize(new Size(900, 440));
+        newTable.setPosition(pos); newTable.layer = this.node.layer;
+        const sp = newTable.addComponent(Sprite);
         sp.spriteFrame = bfSF;
         sp.sizeMode = Sprite.SizeMode.CUSTOM;
+        newTable.setSiblingIndex(sibIdx);
+        this._tableNode = newTable;
       }
       this.refreshHUD();
     });
