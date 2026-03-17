@@ -7,7 +7,7 @@ import { BattleConfig } from '../data/BattleConfig';
 import { DeckPresets, DECK_MIN_SIZE, DECK_MAX_SIZE } from '../data/DeckPresets';
 import { CardLibrary } from '../data/CardLibrary';
 
-const { ccclass } = _decorator;
+const { ccclass, property } = _decorator;
 
 /*
  * 卡牌对战 BattleScene — 框架已迁移，待填充卡牌玩法内容
@@ -58,6 +58,15 @@ export class BattleScene extends Component {
   private deckBuilderInfoLabel: Label | null = null;
   private _deckBuilderCardIndex = 0;
   private _deckBuilderForPlayer = true;
+
+  /* -- editor-assigned sprite frames (drag in inspector) -- */
+  @property(SpriteFrame) sfCardHotspot: SpriteFrame | null = null;
+  @property(SpriteFrame) sfCardModeration: SpriteFrame | null = null;
+  @property(SpriteFrame) sfCardEvidence: SpriteFrame | null = null;
+  @property(SpriteFrame) sfCardBack: SpriteFrame | null = null;
+  @property(SpriteFrame) sfBattlefield: SpriteFrame | null = null;
+  @property(SpriteFrame) sfBannerYourTurn: SpriteFrame | null = null;
+  @property(SpriteFrame) sfBannerEnemyTurn: SpriteFrame | null = null;
 
   /* -- card visuals -- */
   private playerHandContainer: Node | null = null;
@@ -130,19 +139,27 @@ export class BattleScene extends Component {
   }
 
   private getSF(camp: string): SpriteFrame | null {
+    // prefer editor-assigned @property, fallback to dynamic cache
+    if (camp === 'hotspot' && this.sfCardHotspot) return this.sfCardHotspot;
+    if (camp === 'moderation' && this.sfCardModeration) return this.sfCardModeration;
+    if (camp === 'evidence' && this.sfCardEvidence) return this.sfCardEvidence;
     const key = `textures/cards/card_${camp}`;
     return this._sfCache.get(key) ?? null;
   }
 
   private getBackSF(): SpriteFrame | null {
+    if (this.sfCardBack) return this.sfCardBack;
     return this._sfCache.get('textures/card_back/card_back') ?? null;
   }
 
   private getBattlefieldSF(): SpriteFrame | null {
+    if (this.sfBattlefield) return this.sfBattlefield;
     return this._sfCache.get('textures/battlefield/battlefield_bg') ?? null;
   }
 
   private getBannerSF(isPlayer: boolean): SpriteFrame | null {
+    if (isPlayer && this.sfBannerYourTurn) return this.sfBannerYourTurn;
+    if (!isPlayer && this.sfBannerEnemyTurn) return this.sfBannerEnemyTurn;
     const key = isPlayer ? 'textures/banners/banner_your_turn' : 'textures/banners/banner_enemy_turn';
     return this._sfCache.get(key) ?? null;
   }
