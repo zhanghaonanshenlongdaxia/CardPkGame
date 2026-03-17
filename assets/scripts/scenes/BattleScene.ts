@@ -219,7 +219,7 @@ export class BattleScene extends Component {
 
     // selected highlight border (overlay)
     if (selected) {
-      const bm = 6; // border margin
+      const bm = 1; // border margin
       const bw = cw + bm * 2;
       const bh = ch + bm * 2;
       const border = new Node('Sel'); border.parent = n;
