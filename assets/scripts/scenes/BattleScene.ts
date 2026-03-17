@@ -708,15 +708,17 @@ export class BattleScene extends Component {
 
   private showTurnBanner(text: string, color: Color, isPlayerTurn = true) {
     const banner = new Node('TurnBanner'); banner.parent = this.node;
-    banner.addComponent(UITransform).setContentSize(new Size(400, 80));
     banner.layer = this.node.layer;
     banner.setPosition(0, 80, 0);
     const bannerSF = this.getBannerSF(isPlayerTurn);
     if (bannerSF) {
+      // use image's original aspect ratio
+      const tex = bannerSF.texture;
+      const bw = tex ? tex.width : 400;
+      const bh = tex ? tex.height : 80;
+      banner.addComponent(UITransform).setContentSize(new Size(bw, bh));
       const sp = banner.addComponent(Sprite);
-      sp.sizeMode = Sprite.SizeMode.CUSTOM;
       sp.spriteFrame = bannerSF;
-      banner.getComponent(UITransform)!.setContentSize(new Size(400, 80));
     } else {
       const g = banner.addComponent(Graphics);
       g.fillColor = new Color(0, 0, 0, 180);
